@@ -1,65 +1,75 @@
-import express from 'express'
-import puppeteer from 'puppeteer'
-import { writeFileSync } from 'fs'
-import { tmpdir } from 'os'
-import { join } from 'path'
-import fetch from 'node-fetch'
+const express = require("express");
+const puppeteer = require("puppeteer");
+const fs = require("fs");
+const path = require("path");
+const https = require("https");
 
-const app = express()
-app.use(express.json())
+const app = express();
+app.use(express.json());
 
-const PINT_EMAIL = process.env.PINT_EMAIL
-const PINT_PASS = process.env.PINT_PASS
+app.post("/publish", async (req, res) => {
+  const { title, description, link, imageUrl } = req.body;
 
-app.post('/pin', async (req, res) => {
-  const { title, description, imageurl, tg_link } = req.body
-  if (!title || !description || !imageurl || !tg_link) {
-    return res.status(400).json({ error: 'Missing fields' })
+  if (!title || !description || !link || !imageUrl) {
+    return res.status(400).json({ error: "Missing fields" });
   }
+
+  const imagePath = path.join(__dirname, "temp.jpg");
+
+  // Загрузка изображения по URL
+  const downloadImage = () =>
+    new Promise((resolve, reject) => {
+      const file = fs.createWriteStream(imagePath);
+      https.get(imageUrl, (response) => {
+        response.pipe(file);
+        file.on("finish", () => file.close(resolve));
+      }).on("error", reject);
+    });
 
   try {
+    await downloadImage();
+
     const browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    })
-    const page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 800 })
+      headless: false,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    });
+    const page = await browser.newPage();
 
-    await page.goto('https://www.pinterest.com/login/', { waitUntil: 'networkidle2' })
-    await page.type('input[name="id"]', PINT_EMAIL, { delay: 50 })
-    await page.type('input[name="password"]', PINT_PASS, { delay: 50 })
-    await page.click('button[type="submit"]')
-    await page.waitForNavigation({ waitUntil: 'networkidle2' })
+    // Pinterest login
+    await page.goto("https://www.pinterest.com/login/", { waitUntil: "domcontentloaded" });
+    console.log("🔐 Войди вручную в Pinterest. Ждём...");
+    await page.waitForNavigation({ waitUntil: "networkidle0" });
 
-    await page.goto('https://www.pinterest.com/pin-builder/', { waitUntil: 'networkidle2' })
+    // Переход к Pin Builder
+    await page.goto("https://www.pinterest.com/pin-builder/", { waitUntil: "domcontentloaded" });
 
-    const buffer = await fetch(imageurl).then(r => r.buffer())
-    const tempPath = join(tmpdir(), 'image.png')
-    writeFileSync(tempPath, buffer)
+    // Заголовок
+    await page.waitForSelector('textarea[placeholder="Добавьте заголовок"]');
+    await page.type('textarea[placeholder="Добавьте заголовок"]', title);
 
+    // Описание (div[role="textbox"])
+    await page.type('div[role="textbox"]', description);
+
+    // Загрузка картинки
     const [fileChooser] = await Promise.all([
       page.waitForFileChooser(),
-      page.click('div[data-test-id="media-upload"] input[type="file"]')
-    ])
-    await fileChooser.accept([tempPath])
+      page.click('div[data-test-id="media-upload"]')
+    ]);
+    await fileChooser.accept([imagePath]);
 
-    await page.waitForSelector('textarea[placeholder="Добавьте заголовок"]', { timeout: 10000 })
-    await page.type('textarea[placeholder="Добавьте заголовок"]', title)
-    await page.type('textarea[placeholder="Расскажите о вашем пине"]', `${description}\n\n${tg_link}`)
+    // Ссылка
+    await page.type('input[placeholder="Добавьте ссылку"]', link);
 
-    await page.waitForSelector('button[aria-label="Опубликовать"]')
-    await page.click('button[aria-label="Опубликовать"]')
+    console.log("✅ Всё вставлено. Нажми 'Опубликовать' вручную в браузере.");
+    res.json({ status: "ready", message: "Ожидает ручной публикации" });
 
-    await page.waitForTimeout(3000)
-    await browser.close()
-    res.json({ success: true })
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: 'Failed to publish pin' })
+    console.error(err);
+    res.status(500).json({ error: "Ошибка при запуске браузера" });
   }
-})
+});
 
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Pinterest bot listening on port ${PORT}`)
-})
+  console.log("🚀 Pinterest Launcher on port", PORT);
+});
