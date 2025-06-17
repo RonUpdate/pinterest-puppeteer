@@ -16,7 +16,7 @@ app.post("/publish", async (req, res) => {
 
   const imagePath = path.join(__dirname, "temp.jpg");
 
-  // Загрузка изображения по URL
+  // Скачать изображение по ссылке
   const downloadImage = () =>
     new Promise((resolve, reject) => {
       const file = fs.createWriteStream(imagePath);
@@ -35,22 +35,22 @@ app.post("/publish", async (req, res) => {
     });
     const page = await browser.newPage();
 
-    // Pinterest login
+    // Вход в Pinterest
     await page.goto("https://www.pinterest.com/login/", { waitUntil: "domcontentloaded" });
-    console.log("🔐 Войди вручную в Pinterest. Ждём...");
+    console.log("⏳ Зайди в Pinterest вручную...");
     await page.waitForNavigation({ waitUntil: "networkidle0" });
 
-    // Переход к Pin Builder
+    // Открыть форму пина
     await page.goto("https://www.pinterest.com/pin-builder/", { waitUntil: "domcontentloaded" });
 
     // Заголовок
-    await page.waitForSelector('textarea[placeholder="Добавьте заголовок"]');
-    await page.type('textarea[placeholder="Добавьте заголовок"]', title);
+    await page.waitForSelector('textarea[placeholder]');
+    await page.type('textarea[placeholder]', title);
 
-    // Описание (div[role="textbox"])
+    // Описание
     await page.type('div[role="textbox"]', description);
 
-    // Загрузка картинки
+    // Загрузка изображения
     const [fileChooser] = await Promise.all([
       page.waitForFileChooser(),
       page.click('div[data-test-id="media-upload"]')
@@ -58,18 +58,25 @@ app.post("/publish", async (req, res) => {
     await fileChooser.accept([imagePath]);
 
     // Ссылка
-    await page.type('input[placeholder="Добавьте ссылку"]', link);
+    await page.type('input[placeholder*="ссыл"]', link); // русская локализация
 
-    console.log("✅ Всё вставлено. Нажми 'Опубликовать' вручную в браузере.");
-    res.json({ status: "ready", message: "Ожидает ручной публикации" });
+    // Нажать "Опубликовать"
+    const [publishButton] = await page.$x("//button[contains(text(), 'Опубликовать') or contains(text(), 'Publish')]");
+    if (publishButton) {
+      await publishButton.click();
+      console.log("✅ Пин опубликован!");
+      res.json({ status: "ok", message: "Пин опубликован!" });
+    } else {
+      throw new Error("Не найдена кнопка 'Опубликовать'");
+    }
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Ошибка при запуске браузера" });
+    console.error("❌ Ошибка:", err);
+    res.status(500).json({ error: err.message || "Ошибка во время публикации" });
   }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("🚀 Pinterest Launcher on port", PORT);
+  console.log("🚀 Pinterest Publisher запущен на порту", PORT);
 });
