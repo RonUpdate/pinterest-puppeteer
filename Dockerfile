@@ -1,7 +1,9 @@
 FROM node:20-slim
 
-# Устанавливаем зависимости для Puppeteer + Chromium
+# Устанавливаем зависимости Chromium
 RUN apt-get update && apt-get install -y \
+  wget \
+  ca-certificates \
   fonts-liberation \
   libasound2 \
   libatk-bridge2.0-0 \
@@ -15,22 +17,22 @@ RUN apt-get update && apt-get install -y \
   libxcomposite1 \
   libxdamage1 \
   libxrandr2 \
+  libxfixes3 \
+  libxext6 \
+  libx11-xcb1 \
   xdg-utils \
-  wget \
   --no-install-recommends && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
-# Устанавливаем рабочую директорию
+# Создаём рабочую директорию
 WORKDIR /app
 
-# Копируем package.json до установки
+# Копируем package.json и устанавливаем зависимости
 COPY package*.json ./
-
-# Устанавливаем Puppeteer (он сам скачает Chromium)
 RUN npm install puppeteer@21.11.0 --legacy-peer-deps
 
-# Копируем остальные файлы проекта
+# Копируем остальное
 COPY . .
 
 EXPOSE 3000
