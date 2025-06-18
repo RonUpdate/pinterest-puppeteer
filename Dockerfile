@@ -1,4 +1,3 @@
-# Используем официальный Node.js образ
 FROM node:20-slim
 
 # Устанавливаем зависимости для Puppeteer
@@ -23,8 +22,9 @@ RUN apt-get update && apt-get install -y \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
-# Очистка npm кеша + установка Puppeteer
-RUN npm cache clean --force && npm install puppeteer@21.11.0
+# Установка Puppeteer с обходом конфликтов
+RUN rm -rf /root/.npm /app/node_modules package-lock.json && \
+    npm install puppeteer@21.11.0 --legacy-peer-deps
 
 # Создаём рабочую директорию
 WORKDIR /app
@@ -32,11 +32,9 @@ WORKDIR /app
 # Копируем файлы проекта
 COPY . .
 
-# Устанавливаем зависимости
-RUN npm install
+# Устанавливаем зависимости проекта
+RUN npm install --legacy-peer-deps
 
-# Открываем порт
 EXPOSE 3000
 
-# Запускаем приложение
 CMD ["node", "index.js"]
