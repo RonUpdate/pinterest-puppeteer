@@ -22,17 +22,20 @@ RUN apt-get update && apt-get install -y \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
-# Установка Puppeteer с обходом конфликтов
-RUN rm -rf /root/.npm /app/node_modules package-lock.json && \
-    npm install puppeteer@21.11.0 --legacy-peer-deps
-
-# Создаём рабочую директорию
+# Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Копируем файлы проекта
+# Копируем package.json и package-lock.json для установки зависимостей
+COPY package*.json ./
+
+# Установка Puppeteer отдельно, избегая ошибок
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+RUN npm install puppeteer@21.11.0 --legacy-peer-deps
+
+# Копируем остальные файлы
 COPY . .
 
-# Устанавливаем зависимости проекта
+# Установка всех зависимостей проекта
 RUN npm install --legacy-peer-deps
 
 EXPOSE 3000
