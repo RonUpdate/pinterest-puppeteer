@@ -23,8 +23,8 @@ RUN apt-get update && apt-get install -y \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
-# Устанавливаем Puppeteer вручную (включает Chromium)
-RUN npm install puppeteer@21.11.0
+# Очистка npm кеша + установка Puppeteer
+RUN npm cache clean --force && npm install puppeteer@21.11.0
 
 # Создаём рабочую директорию
 WORKDIR /app
@@ -32,10 +32,10 @@ WORKDIR /app
 # Копируем файлы проекта
 COPY . .
 
-# Устанавливаем зависимости из package.json
+# Устанавливаем зависимости
 RUN npm install
 
-# Открываем порт (по умолчанию Express использует 3000)
+# Открываем порт
 EXPOSE 3000
 
 # Запускаем приложение
