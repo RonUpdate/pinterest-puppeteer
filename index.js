@@ -35,7 +35,7 @@ app.post("/publish", async (req, res) => {
 
     const page = await browser.newPage();
 
-    // Загрузка куков
+    // Загрузка cookies
     const cookiesPath = path.join(__dirname, "cookies.json");
     if (fs.existsSync(cookiesPath)) {
       const cookies = JSON.parse(fs.readFileSync(cookiesPath, "utf-8"));
@@ -45,21 +45,29 @@ app.post("/publish", async (req, res) => {
       throw new Error("❌ Файл cookies.json не найден");
     }
 
-    // Создание пина
-    await page.goto("https://www.pinterest.com/pin-builder/", { waitUntil: "domcontentloaded" });
+    // Переход на страницу создания пина
+    await page.goto("https://www.pinterest.com/pin-builder/", {
+      waitUntil: "domcontentloaded"
+    });
 
+    // Заголовок
     await page.waitForSelector('textarea[placeholder]');
     await page.type('textarea[placeholder]', title);
-    await page.type('div[role="textbox"]', description);
 
+    // Описание — обновлённый селектор
+    await page.type('div[data-test-id="pin-draft-description"] div[contenteditable="true"]', description);
+
+    // Загрузка изображения
     const [fileChooser] = await Promise.all([
       page.waitForFileChooser(),
       page.click('div[data-test-id="media-upload"]')
     ]);
     await fileChooser.accept([imagePath]);
 
+    // Ссылка
     await page.type('input[placeholder*="ссыл"]', link);
 
+    // Кнопка Опубликовать
     const [publishButton] = await page.$x("//button[contains(text(), 'Опубликовать') or contains(text(), 'Publish')]");
     if (publishButton) {
       await publishButton.click();
