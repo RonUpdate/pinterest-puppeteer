@@ -16,7 +16,6 @@ app.post("/publish", async (req, res) => {
 
   const imagePath = path.join(__dirname, "temp.jpg");
 
-  // Скачать изображение по ссылке
   const downloadImage = () =>
     new Promise((resolve, reject) => {
       const file = fs.createWriteStream(imagePath);
@@ -30,37 +29,38 @@ app.post("/publish", async (req, res) => {
     await downloadImage();
 
     const browser = await puppeteer.launch({
-      headless: false,
+      headless: true,
+      executablePath: "/usr/bin/google-chrome",
       args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
+
     const page = await browser.newPage();
 
-    // Вход в Pinterest
-    await page.goto("https://www.pinterest.com/login/", { waitUntil: "domcontentloaded" });
-    console.log("⏳ Зайди в Pinterest вручную...");
-    await page.waitForNavigation({ waitUntil: "networkidle0" });
+    // Загружаем куки, если есть
+    const cookiesPath = path.join(__dirname, "cookies.json");
+    if (fs.existsSync(cookiesPath)) {
+      const cookies = JSON.parse(fs.readFileSync(cookiesPath, "utf-8"));
+      await page.setCookie(...cookies);
+      console.log("🍪 Куки загружены в браузер");
+    } else {
+      throw new Error("❌ Файл cookies.json не найден");
+    }
 
-    // Открыть форму пина
+    // Переход сразу к созданию пина
     await page.goto("https://www.pinterest.com/pin-builder/", { waitUntil: "domcontentloaded" });
 
-    // Заголовок
     await page.waitForSelector('textarea[placeholder]');
     await page.type('textarea[placeholder]', title);
-
-    // Описание
     await page.type('div[role="textbox"]', description);
 
-    // Загрузка изображения
     const [fileChooser] = await Promise.all([
       page.waitForFileChooser(),
       page.click('div[data-test-id="media-upload"]')
     ]);
     await fileChooser.accept([imagePath]);
 
-    // Ссылка
-    await page.type('input[placeholder*="ссыл"]', link); // русская локализация
+    await page.type('input[placeholder*="ссыл"]', link);
 
-    // Нажать "Опубликовать"
     const [publishButton] = await page.$x("//button[contains(text(), 'Опубликовать') or contains(text(), 'Publish')]");
     if (publishButton) {
       await publishButton.click();
@@ -70,6 +70,7 @@ app.post("/publish", async (req, res) => {
       throw new Error("Не найдена кнопка 'Опубликовать'");
     }
 
+    await browser.close();
   } catch (err) {
     console.error("❌ Ошибка:", err);
     res.status(500).json({ error: err.message || "Ошибка во время публикации" });
