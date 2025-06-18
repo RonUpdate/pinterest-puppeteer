@@ -1,8 +1,7 @@
 FROM node:20-slim
 
-# Устанавливаем зависимости для Puppeteer
+# Устанавливаем зависимости для Puppeteer + Chromium
 RUN apt-get update && apt-get install -y \
-  chromium \
   fonts-liberation \
   libasound2 \
   libatk-bridge2.0-0 \
@@ -25,18 +24,14 @@ RUN apt-get update && apt-get install -y \
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Копируем package.json и package-lock.json для установки зависимостей
+# Копируем package.json до установки
 COPY package*.json ./
 
-# Установка Puppeteer отдельно, избегая ошибок
-ENV PUPPETEER_SKIP_DOWNLOAD=true
+# Устанавливаем Puppeteer (он сам скачает Chromium)
 RUN npm install puppeteer@21.11.0 --legacy-peer-deps
 
-# Копируем остальные файлы
+# Копируем остальные файлы проекта
 COPY . .
-
-# Установка всех зависимостей проекта
-RUN npm install --legacy-peer-deps
 
 EXPOSE 3000
 
