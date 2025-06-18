@@ -20,10 +20,12 @@ RUN apt-get update && apt-get install -y \
   libxfixes3 \
   libxext6 \
   libx11-xcb1 \
+  libxkbcommon0 \
   xdg-utils \
   --no-install-recommends && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
+
 
 # Создаём рабочую директорию
 WORKDIR /app
