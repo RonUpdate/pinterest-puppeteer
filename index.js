@@ -30,23 +30,22 @@ app.post("/publish", async (req, res) => {
 
     const browser = await puppeteer.launch({
       headless: true,
-      executablePath: "/usr/bin/google-chrome",
       args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
 
     const page = await browser.newPage();
 
-    // Загружаем куки, если есть
+    // Загрузка куков
     const cookiesPath = path.join(__dirname, "cookies.json");
     if (fs.existsSync(cookiesPath)) {
       const cookies = JSON.parse(fs.readFileSync(cookiesPath, "utf-8"));
       await page.setCookie(...cookies);
-      console.log("🍪 Куки загружены в браузер");
+      console.log("🍪 Куки загружены");
     } else {
       throw new Error("❌ Файл cookies.json не найден");
     }
 
-    // Переход сразу к созданию пина
+    // Создание пина
     await page.goto("https://www.pinterest.com/pin-builder/", { waitUntil: "domcontentloaded" });
 
     await page.waitForSelector('textarea[placeholder]');
